@@ -55,6 +55,38 @@
 
 #include "vapi/vsl_int.h"
 
+#define _WS_SCRATCH_MINSZ(wss)						\
+	(sizeof((wss)->fallback) / sizeof((wss)->fallback[0]))
+
+#define WS_SCRATCH_SPACE(typ, fallback_size)				\
+	struct {							\
+		typ *scratch;						\
+		typ fallback[fallback_size];				\
+	}
+
+#define WS_SCRATCH_RESERVE(dest, count, ws, spc)			\
+	do {								\
+		dest = NULL;						\
+		count = 0;						\
+		if ((ws)->r == NULL) {					\
+			count = WS_ReserveLumps(ws, sizeof *(dest));	\
+			dest = (void*)(ws)->f;				\
+		}							\
+		if ((count) < _WS_SCRATCH_MINSZ(spc)) {			\
+			if (dest != NULL)				\
+				WS_Release(ws, 0);			\
+			count = _WS_SCRATCH_MINSZ(spc);			\
+			dest = (spc)->fallback;				\
+		}							\
+		(spc)->scratch = (dest);				\
+	} while (0)
+
+#define WS_SCRATCH_RELEASE(ws, spc)					\
+	do {								\
+		if ((spc)->scratch != (spc)->fallback)			\
+			WS_Release(ws, 0);				\
+	} while (0)
+
 /*--------------------------------------------------------------------*/
 
 struct vxids {
