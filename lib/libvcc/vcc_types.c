@@ -45,14 +45,8 @@
  *
  * XXX: type methods might move in a more comprehensive direction.
  */
-struct vcc_method {
-	unsigned		magic;
-#define VCC_METHOD_MAGIC	0x594108cd
-	vcc_type_t		type;
-	const char		*name;
-	const char		*impl;
-	int			func;
-};
+
+#include "vcc_types_meth.h"
 
 const struct type ACL[1] = {{
 	.magic =		TYPE_MAGIC,
@@ -60,12 +54,6 @@ const struct type ACL[1] = {{
 	.global_pfx =		"vrt_acl",
 	.tostring =		"((\v1)->name)",
 }};
-
-static const struct vcc_method backend_methods[] = {
-	{ VCC_METHOD_MAGIC, BACKEND, "resolve",
-	    "VRT_DirectorResolve(ctx, \v1)", 1 },
-	{ VCC_METHOD_MAGIC, NULL },
-};
 
 const struct type BACKEND[1] = {{
 	.magic =		TYPE_MAGIC,
@@ -162,13 +150,6 @@ const struct type REGEX[1] = {{
 	.name =			"REGEX",
 }};
 
-static const struct vcc_method stevedore_methods[] = {
-#define VRTSTVVAR(nm, vtype, ctype, dval) \
-	{ VCC_METHOD_MAGIC, vtype, #nm, "VRT_stevedore_" #nm "(\v1)", 0},
-#include "tbl/vrt_stv_var.h"
-	{ VCC_METHOD_MAGIC, NULL },
-};
-
 const struct type STEVEDORE[1] = {{
 	.magic =		TYPE_MAGIC,
 	.name =			"STEVEDORE",
@@ -188,14 +169,6 @@ const struct type STRANDS[1] = {{
 	.stringform =		1,
 	.tostring =		"VRT_STRANDS_string(ctx,\v+\n\v1\v-\n)",
 }};
-
-static const struct vcc_method strings_methods[] = {
-	{ VCC_METHOD_MAGIC, STRING, "upper",
-	    "VRT_UpperLowerStrands(ctx, \vT, 1)", 1 },
-	{ VCC_METHOD_MAGIC, STRING, "lower",
-	    "VRT_UpperLowerStrands(ctx, \vT, 0)", 1 },
-	{ VCC_METHOD_MAGIC, NULL },
-};
 
 const struct type STRINGS[1] = {{
 	.magic =		TYPE_MAGIC,
@@ -227,77 +200,4 @@ const struct type VOID[1] = {{
 	.name =			"VOID",
 }};
 
-vcc_type_t
-VCC_Type(const char *p)
-{
-
-#define VCC_TYPE(UC, lc)	if (!strcmp(p, #UC)) return (UC);
-#include "vcc_types.h"
-	return (NULL);
-}
-
-static void
-vcc_type_init(struct vcc *tl, vcc_type_t type)
-{
-	const struct vcc_method *vm;
-	struct symbol *sym;
-	struct vsb *buf;
-
-	/* NB: Don't bother even creating a type symbol if there are no
-	 * methods attached to it.
-	 */
-	if (type->methods == NULL)
-		return;
-
-	buf = VSB_new_auto();
-	AN(buf);
-	AN(VCC_MkSym(tl, type->name, SYM_TYPE, SYM_NONE, VCL_LOW, VCL_HIGH));
-
-	for (vm = type->methods; vm->type != NULL; vm++) {
-		VSB_printf(buf, "%s.%s", type->name, vm->name);
-		AZ(VSB_finish(buf));
-		sym = VCC_MkSym(tl, VSB_data(buf), SYM_TYPE, SYM_METHOD,
-		    VCL_LOW, VCL_HIGH);
-		VSB_clear(buf);
-		if (tl->err)
-			break;
-		AN(sym);
-		sym->type = vm->type;
-		sym->eval = vcc_Eval_TypeMethod;
-		sym->eval_priv = vm;
-	}
-
-	VSB_destroy(&buf);
-}
-
-const char *
-VCC_Type_EvalMethod(struct vcc *tl, const struct symbol *sym)
-{
-	const struct vcc_method *vm;
-
-	AN(sym);
-	AN(sym->kind == SYM_METHOD);
-	CAST_OBJ_NOTNULL(vm, sym->eval_priv, VCC_METHOD_MAGIC);
-
-	vcc_NextToken(tl);
-	if (vm->func) {
-		Expect(tl, '(');
-		if (tl->err)
-			return (NULL);
-		vcc_NextToken(tl);
-		Expect(tl, ')');
-		if (tl->err)
-			return (NULL);
-		vcc_NextToken(tl);
-	}
-
-	return (vm->impl);
-}
-
-void
-vcc_Type_Init(struct vcc *tl)
-{
-
-#define VCC_TYPE(UC, lc)	vcc_type_init(tl, UC);
-#include "vcc_types.h"
-}
+#include "vcc_types_static.h"
