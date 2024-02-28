@@ -301,6 +301,87 @@ stv_variables = (
     """),
 )
 
+######################################################################
+# VCL types
+
+class typedef:
+
+    def __init__(self, name, tostringmeth, methods, global_pfx, multype, flags):
+        self.name = name
+        self.tostringmeth = tostringmeth
+        self.methods = methods
+        self.global_pfx = global_pfx
+        self.multype = multype
+        self.flags = flags
+
+def parse_type(ln):
+    tostring = False
+    name = ""
+    tostringmeth = ""
+    global_pfx= ""
+    multype= ""
+    methods = []
+    flags = ""
+    while True:
+        try:
+            l = ln.pop(0).strip()
+            if l == "":
+                continue
+            if l.startswith(".. "):
+                l = l[3:].strip()
+
+            j = l.split(":")
+            j = [s.strip() for s in j]
+            if j[0] == "Type name":
+                name = j[1]
+                continue
+            if j[0] == "Convertible to string":
+                tostring = j[1] == "yes"
+                continue
+            if j[0] == "Methods":
+                methods = [s.strip() for s in j[1].split(",")]
+                continue
+            if j[0] == "tostringmeth":
+                tostringmeth = j[1]
+                continue
+            if j[0] == "stringform":
+                flags += 's'
+                continue
+            if j[0] == "Body form":
+                flags += 'b' if j[1] == "yes" else ''
+                continue
+            if j[0] == "noindent":
+                flags += 'n'
+                continue
+            if j[0] == "global_pfx":
+                global_pfx = j[1]
+                continue
+            if j[0] == "Multiply type":
+                multype = j[1]
+                continue
+        except (IndexError):
+            break
+
+    assert name != ""
+    assert ((not tostring) or (tostringmeth != ""))
+    return typedef(name, tostringmeth, methods, global_pfx, multype, flags)
+
+def parse_types_doc(fn):
+    l = []
+    types = []
+    for i in open(fn):
+        l.append(i.rstrip())
+    for n in range(0, len(l)):
+        j = l[n].split()
+        if len(j) != 3 or not (j[0] == "Type" and j[1] == "name:") or not l[n][0].isspace():
+            continue
+        m = n
+        while m < len(l) and (l[m] == "" or l[m][0].isspace() or l[m].startswith(".. \t")):
+            m += 1
+
+        types.append(parse_type(l[n-1:m]))
+    return types
+
 #######################################################################
 # VCL to C type conversion
 
@@ -835,6 +916,56 @@ for vcltype in sorted(vcltypes.keys()):
 ft.write("#undef VCC_TYPE\n")
 lint_end(ft)
 ft.close()
+
+#######################################################################
+
+fo = open(join(buildroot, "lib/libvcc/vcc_types.c"), "w")
+file_header(fo)
+
+fo.write("""
+#include "config.h"
+
+#include <string.h>
+
+#include "vcc_compile.h"
+
+/*
+ * A type attribute is information already existing, requiring no processing
+ * or resource usage.
+ *
+ * A type method is a call and may do significant processing, change things,
+ * eat workspace etc.
+ *
+ * XXX: type methods might move in a more comprehensive direction.
+ */
+
+#include "vcc_types_meth.h"
+
+""")
+
+types = parse_types_doc(join(srcroot, "doc/sphinx/reference/vcl_types.rst"))
+for type in types:
+    fo.write("const struct type {}[1]".format(type.name))
+
+    fo.write(" = {{")
+
+    fo.write("""
+	.magic =		TYPE_MAGIC,
+	.name =			"{}",\n{}{}{}{}{}{}{}"""
+    .format(type.name,
+        "	.methods =		{},\n".format(type.name.lower()+"_methods") if type.methods != [] else "",
+        "	.noindent =		{},\n".format("1") if 'n' in type.flags else "",
+        "	.stringform =		{},\n".format("1") if 's' in type.flags else "",
+        "	.bodyform =		{},\n".format("1") if 'b' in type.flags else "",
+        "	.global_pfx =		{},\n".format(type.global_pfx) if type.global_pfx != "" else "",
+        "	.tostring =		{},\n".format(type.tostringmeth) if type.tostringmeth != "" else "",
+        "	.multype =		{},\n".format(type.multype) if type.multype != "" else "")
+    )
+
+    fo.write("}};\n\n")
+
+fo.write("#include \"vcc_types_static.h\"\n")
+fo.close()
 
 #######################################################################
 

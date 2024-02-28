@@ -7,6 +7,7 @@ dist_man_MANS = \
 	vcl-backend.7 \
 	vcl-probe.7 \
 	vcl-var.7 \
+	vcl-types.7 \
 	vcl-step.7 \
 	vsl.7 \
 	vsl-query.7 \
@@ -61,6 +62,9 @@ vcl-probe.7: $(top_builddir)/doc/sphinx/reference/vcl-probe.rst
 
 vcl-var.7: $(top_builddir)/doc/sphinx/reference/vcl-var.rst
 	$(BUILD_MAN) $(top_builddir)/doc/sphinx/reference/vcl-var.rst $@
+
+vcl-types.7: $(top_builddir)/doc/sphinx/reference/vcl_types.rst
+	$(BUILD_MAN) $(top_builddir)/doc/sphinx/reference/vcl_types.rst $@
 
 vcl-step.7: $(top_builddir)/doc/sphinx/reference/vcl-step.rst \
 	$(top_builddir)/doc/sphinx/reference/vcl_step.rst

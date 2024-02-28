@@ -40,13 +40,17 @@ dist_noinst_SCRIPTS = \
 dist_pkgdata_SCRIPTS = \
 	vmodtool.py
 
+GEN_C = \
+	vcc_types.c \
+	vcc_obj.c
 ## keep in sync with include/Makefile.am
-vcc_obj.c: \
+$(GEN_C): \
 	    $(top_srcdir)/lib/libvcc/generate.py \
 	    $(top_srcdir)/include/vcc_interface.h \
 	    $(top_srcdir)/include/vdef.h \
 	    $(top_srcdir)/include/vrt.h \
-	    $(top_srcdir)/doc/sphinx/reference/vcl_var.rst
+	    $(top_srcdir)/doc/sphinx/reference/vcl_var.rst \
+	    $(top_srcdir)/doc/sphinx/reference/vcl_types.rst
 	mkdir -p $(top_builddir)/include/tbl
 	@PYTHON@ $(top_srcdir)/lib/libvcc/generate.py \
 	    $(top_srcdir) $(top_builddir)
@@ -61,7 +65,7 @@ GEN_H = \
 
 $(GEN_H): vcc_obj.c
 
-GENERATED_H = vcc_obj.c $(GEN_H)
+GENERATED_H = vcc_types.c vcc_obj.c $(GEN_H)
 
 BUILT_SOURCES = $(GENERATED_H)
 
