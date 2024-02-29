@@ -124,15 +124,6 @@ HTTP
 	Type name: HTTP
 
 
-.. _INSTANCE:
-
-INSTANCE
-
-	Type name: INSTANCE
-
-.. 	global_pfx: "vo"
-
-
 .. _INT:
 
 INT

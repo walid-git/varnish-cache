@@ -30,6 +30,14 @@
  *
  */
 
+/* We don't want this to appear in the docs */
+
+const struct type INSTANCE[1] = {{
+	.magic =		TYPE_MAGIC,
+	.name =			"INSTANCE",
+	.global_pfx =		"vo",
+}};
+
 vcc_type_t
 VCC_Type(const char *p)
 {
