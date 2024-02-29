@@ -47,8 +47,8 @@ VCC_Type(const char *p)
 	return (NULL);
 }
 
-static void
-vcc_type_init(struct vcc *tl, vcc_type_t type)
+static inline void
+vcc_type_init_static(struct vcc *tl, vcc_type_t type)
 {
 	const struct vcc_method *vm;
 	struct symbol *sym;
@@ -104,6 +104,8 @@ VCC_Type_EvalMethod(struct vcc *tl, const struct symbol *sym)
 
 	return (vm->impl);
 }
+
+static void vcc_type_init(struct vcc *tl, vcc_type_t type);
 
 void
 vcc_Type_Init(struct vcc *tl)

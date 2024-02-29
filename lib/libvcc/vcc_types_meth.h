@@ -40,23 +40,20 @@ struct vcc_method {
 	int			func;
 };
 
-static const struct vcc_method backend_methods[] = {
+static const struct vcc_method backend_method_resolve =
 	{ VCC_METHOD_MAGIC, BACKEND, "resolve",
-	    "VRT_DirectorResolve(ctx, \v1)", 1 },
-	{ VCC_METHOD_MAGIC, NULL },
-};
+	    "VRT_DirectorResolve(ctx, \v1)", 1 };
 
-static const struct vcc_method stevedore_methods[] = {
 #define VRTSTVVAR(nm, vtype, ctype, dval) \
-	{ VCC_METHOD_MAGIC, vtype, #nm, "VRT_stevedore_" #nm "(\v1)", 0},
+static const struct vcc_method stevedore_method_##nm = \
+	{ VCC_METHOD_MAGIC, vtype, #nm, "VRT_stevedore_" #nm "(\v1)", 0};
 #include "tbl/vrt_stv_var.h"
-	{ VCC_METHOD_MAGIC, NULL },
-};
 
-static const struct vcc_method strings_methods[] = {
+static const struct vcc_method strings_method_upper =
 	{ VCC_METHOD_MAGIC, STRING, "upper",
-	    "VRT_UpperLowerStrands(ctx, \vT, 1)", 1 },
+	    "VRT_UpperLowerStrands(ctx, \vT, 1)", 1 };
+static const struct vcc_method strings_method_lower =
 	{ VCC_METHOD_MAGIC, STRING, "lower",
-	    "VRT_UpperLowerStrands(ctx, \vT, 0)", 1 },
-	{ VCC_METHOD_MAGIC, NULL },
-};
+	    "VRT_UpperLowerStrands(ctx, \vT, 0)", 1 };
+
+static const struct vcc_method vcc_method_null = { VCC_METHOD_MAGIC, NULL };

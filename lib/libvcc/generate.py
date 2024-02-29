@@ -339,7 +339,16 @@ def parse_type(ln):
                 tostring = j[1] == "yes"
                 continue
             if j[0] == "Methods":
-                methods = [s.strip() for s in j[1].split(",")]
+                while True:
+                    if ln[0].startswith("\t  *"):
+                        j = ln.pop(0).strip().split(":")
+                        methods += [j[0][2:]]
+                        continue
+                    if ln[0] == "" or ln[0].startswith("\t  "):
+                        ln.pop(0)
+                        continue
+                    assert(methods != [])
+                    break
                 continue
             if j[0] == "tostringmeth":
                 tostringmeth = j[1]
@@ -944,7 +953,12 @@ fo.write("""
 """)
 
 types = parse_types_doc(join(srcroot, "doc/sphinx/reference/vcl_types.rst"))
+methods = {}
 for type in types:
+    if (type.methods != []):
+        fo.write("static struct vcc_method {}_methods[{}];\n\n"
+                 .format(type.name.lower(), len(type.methods) + 1))
+        methods[type.name.lower()] = type.methods
     fo.write("const struct type {}[1]".format(type.name))
 
     fo.write(" = {{")
@@ -964,7 +978,20 @@ for type in types:
 
     fo.write("}};\n\n")
 
-fo.write("#include \"vcc_types_static.h\"\n")
+fo.write("""
+#include \"vcc_types_static.h\"\n
+
+static void
+vcc_type_init(struct vcc *tl, vcc_type_t type) {
+
+""")
+
+for m in methods.keys():
+    for i in range(0, len(methods[m])):
+        fo.write("\t{}_methods[{}] = {}_method_{};\n".format(m, i, m, methods[m][i]))
+    fo.write("\t{}_methods[{}] = vcc_method_null;\n\n".format(m, len(methods[m])))
+fo.write("\tvcc_type_init_static(tl, type);\n}\n")
+
 fo.close()
 
 #######################################################################
