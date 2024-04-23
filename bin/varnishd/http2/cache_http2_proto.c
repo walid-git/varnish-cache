@@ -219,7 +219,7 @@ h2_kill_req(struct worker *wrk, struct h2_sess *h2,
 	ASSERT_RXTHR(h2);
 	AN(h2e);
 	Lck_Lock(&h2->sess->mtx);
-	VSLb(h2->vsl, SLT_Debug, "KILL st=%u state=%d sched=%d",
+	H2_sess_VSLb(h2, 1, SLT_Debug, "KILL st=%u state=%d sched=%d",
 	    r2->stream, r2->state, r2->scheduled);
 	if (r2->counted) {
 		assert(h2->open_streams > 0);
@@ -234,7 +234,7 @@ h2_kill_req(struct worker *wrk, struct h2_sess *h2,
 		r2 = NULL;
 	} else {
 		if (r2->state == H2_S_OPEN && h2->new_req == r2->req)
-			(void)h2h_decode_fini(h2);
+			(void)h2h_decode_fini(h2, 1);
 	}
 	Lck_Unlock(&h2->sess->mtx);
 	if (r2 != NULL)
@@ -356,9 +356,7 @@ h2_rapid_reset(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	h2->last_rst = now;
 
 	if (h2->rst_budget < 1.0) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_SessError, "H2: Hit RST limit. Closing session.");
-		Lck_Unlock(&h2->sess->mtx);
+		H2_sess_VSLb(h2, 0, SLT_SessError, "H2: Hit RST limit. Closing session.");
 		return (H2CE_RAPID_RESET);
 	}
 	h2->rst_budget -= 1.0;
@@ -398,9 +396,7 @@ h2_rx_goaway(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	h2->goaway = 1;
 	h2->goaway_last_stream = vbe32dec(h2->rxf_data);
 	h2->error = h2_connectionerror(vbe32dec(h2->rxf_data + 4));
-	Lck_Lock(&h2->sess->mtx);
-	VSLb(h2->vsl, SLT_Debug, "GOAWAY %s", h2->error->name);
-	Lck_Unlock(&h2->sess->mtx);
+	H2_sess_VSLb(h2, 0, SLT_Debug, "GOAWAY %s", h2->error->name);
 	return (h2->error);
 }
 
@@ -533,19 +529,15 @@ h2_set_setting(struct h2_sess *h2, const uint8_t *d)
 	y = vbe32dec(d + 2);
 	if (x >= H2_SETTING_TBL_LEN || h2_setting_tbl[x] == NULL) {
 		// rfc7540,l,2181,2182
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 0, SLT_Debug,
 		    "H2SETTING unknown setting 0x%04x=%08x (ignored)", x, y);
-		Lck_Unlock(&h2->sess->mtx);
 		return (0);
 	}
 	s = h2_setting_tbl[x];
 	AN(s);
 	if (y < s->minval || y > s->maxval) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug, "H2SETTING invalid %s=0x%08x",
+		H2_sess_VSLb(h2, 0, SLT_Debug, "H2SETTING invalid %s=0x%08x",
 		    s->name, y);
-		Lck_Unlock(&h2->sess->mtx);
 		AN(s->range_error);
 		if (!DO_DEBUG(DBG_H2_NOCHECK))
 			return (s->range_error);
@@ -553,7 +545,7 @@ h2_set_setting(struct h2_sess *h2, const uint8_t *d)
 	Lck_Lock(&h2->sess->mtx);
 	if (s == H2_SET_INITIAL_WINDOW_SIZE)
 		h2_win_adjust(h2, h2->remote_settings.initial_window_size, y);
-	VSLb(h2->vsl, SLT_Debug, "H2SETTING %s=0x%08x", s->name, y);
+	H2_sess_VSLb(h2, 1, SLT_Debug, "H2SETTING %s=0x%08x", s->name, y);
 	Lck_Unlock(&h2->sess->mtx);
 	AN(s->setfunc);
 	s->setfunc(&h2->remote_settings, y);
@@ -634,12 +626,10 @@ h2_end_headers(struct worker *wrk, struct h2_sess *h2,
 
 	ASSERT_RXTHR(h2);
 	assert(r2->state == H2_S_OPEN);
-	h2e = h2h_decode_fini(h2);
+	h2e = h2h_decode_fini(h2, 0);
 	h2->new_req = NULL;
 	if (h2e != NULL) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug, "HPACK/FINI %s", h2e->name);
-		Lck_Unlock(&h2->sess->mtx);
+		H2_sess_VSLb(h2, 0, SLT_Debug, "HPACK/FINI %s", h2e->name);
 		assert(!WS_IsReserved(r2->req->ws));
 		h2_del_req(wrk, r2);
 		return (h2e);
@@ -654,7 +644,7 @@ h2_end_headers(struct worker *wrk, struct h2_sess *h2,
 	cl = http_GetContentLength(req->http);
 	assert(cl >= -2);
 	if (cl == -2) {
-		VSLb(h2->vsl, SLT_Debug, "Non-parseable Content-Length");
+		H2_sess_VSLb(h2, 0, SLT_Debug, "Non-parseable Content-Length");
 		return (H2SE_PROTOCOL_ERROR);
 	}
 
@@ -681,12 +671,12 @@ h2_end_headers(struct worker *wrk, struct h2_sess *h2,
 	}
 
 	if (req->http->hd[HTTP_HDR_METHOD].b == NULL) {
-		VSLb(h2->vsl, SLT_Debug, "Missing :method");
+		H2_sess_VSLb(h2, 0, SLT_Debug, "Missing :method");
 		return (H2SE_PROTOCOL_ERROR); //rfc7540,l,3087,3090
 	}
 
 	if (req->http->hd[HTTP_HDR_URL].b == NULL) {
-		VSLb(h2->vsl, SLT_Debug, "Missing :path");
+		H2_sess_VSLb(h2, 0, SLT_Debug, "Missing :path");
 		return (H2SE_PROTOCOL_ERROR); //rfc7540,l,3087,3090
 	}
 
@@ -695,7 +685,7 @@ h2_end_headers(struct worker *wrk, struct h2_sess *h2,
 	if (*req->http->hd[HTTP_HDR_URL].b == '*' &&
 	    (Tlen(req->http->hd[HTTP_HDR_METHOD]) != 7 ||
 	    strncmp(req->http->hd[HTTP_HDR_METHOD].b, "OPTIONS", 7))) {
-		VSLb(h2->vsl, SLT_BogoHeader, "Illegal :path pseudo-header");
+		H2_sess_VSLb(h2, 0, SLT_BogoHeader, "Illegal :path pseudo-header");
 		return (H2SE_PROTOCOL_ERROR); //rfc7540,l,3068,3071
 	}
 
@@ -733,7 +723,7 @@ h2_rx_headers(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 		 */
 		if (h2->open_streams >=
 		    (int)h2->local_settings.max_concurrent_streams) {
-			VSLb(h2->vsl, SLT_Debug,
+			H2_sess_VSLb(h2, 0, SLT_Debug,
 			     "H2: stream %u: Hit maximum number of "
 			     "concurrent streams", h2->rxf_stream);
 			return (H2SE_REFUSED_STREAM);	// rfc7540,l,1200,1205
@@ -785,10 +775,8 @@ h2_rx_headers(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	}
 	h2e = h2h_decode_bytes(h2, p, l);
 	if (h2e != NULL) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug, "HPACK(hdr) %s", h2e->name);
-		Lck_Unlock(&h2->sess->mtx);
-		(void)h2h_decode_fini(h2);
+		H2_sess_VSLb(h2, 0, SLT_Debug, "HPACK(hdr) %s", h2e->name);
+		(void)h2h_decode_fini(h2, 0);
 		assert(!WS_IsReserved(r2->req->ws));
 		h2_del_req(wrk, r2);
 		return (h2e);
@@ -820,10 +808,8 @@ h2_rx_continuation(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	h2e = h2h_decode_bytes(h2, h2->rxf_data, h2->rxf_len);
 	r2->req->acct.req_hdrbytes += h2->rxf_len;
 	if (h2e != NULL) {
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug, "HPACK(cont) %s", h2e->name);
-		Lck_Unlock(&h2->sess->mtx);
-		(void)h2h_decode_fini(h2);
+		H2_sess_VSLb(h2, 0, SLT_Debug, "HPACK(cont) %s", h2e->name);
+		(void)h2h_decode_fini(h2, 0);
 		assert(!WS_IsReserved(r2->req->ws));
 		h2_del_req(wrk, r2);
 		return (h2e);
@@ -875,7 +861,7 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	len = h2->rxf_len;
 	if (h2->rxf_flags & H2FF_DATA_PADDED) {
 		if (*src >= len) {
-			VSLb(h2->vsl, SLT_SessError,
+			H2_sess_VSLb(h2, 1, SLT_SessError,
 			    "H2: stream %u: Padding larger than frame length",
 			    h2->rxf_stream);
 			r2->error = H2CE_PROTOCOL_ERROR;
@@ -898,7 +884,7 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 		if (l > r2->req->htc->content_length ||
 		    ((h2->rxf_flags & H2FF_DATA_END_STREAM) &&
 		     l != r2->req->htc->content_length)) {
-			VSLb(h2->vsl, SLT_Debug,
+			H2_sess_VSLb(h2, 1, SLT_Debug,
 			    "H2: stream %u: Received data and Content-Length"
 			    " mismatch", h2->rxf_stream);
 			r2->error = H2SE_PROTOCOL_ERROR;
@@ -912,7 +898,7 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	/* Check and charge connection window. The entire frame including
 	 * padding (h2->rxf_len) counts towards the window. */
 	if (h2->rxf_len > h2->req0->r_window) {
-		VSLb(h2->vsl, SLT_SessError,
+		H2_sess_VSLb(h2, 1, SLT_SessError,
 		    "H2: stream %u: Exceeded connection receive window",
 		    h2->rxf_stream);
 		r2->error = H2CE_FLOW_CONTROL_ERROR;
@@ -935,7 +921,7 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 	/* Check stream window. The entire frame including padding
 	 * (h2->rxf_len) counts towards the window. */
 	if (h2->rxf_len > r2->r_window) {
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 1, SLT_Debug,
 		    "H2: stream %u: Exceeded stream receive window",
 		    h2->rxf_stream);
 		r2->error = H2SE_FLOW_CONTROL_ERROR;
@@ -1007,11 +993,11 @@ h2_rx_data(struct worker *wrk, struct h2_sess *h2, struct h2_req *r2)
 		stvbuf = STV_AllocBuf(wrk, stv_h2_rxbuf,
 		    bufsize + sizeof *rxbuf);
 		if (stvbuf == NULL) {
-			VSLb(h2->vsl, SLT_Debug,
+			Lck_Lock(&h2->sess->mtx);
+			H2_sess_VSLb(h2, 1, SLT_Debug,
 			    "H2: stream %u: Failed to allocate request body"
 			    " buffer",
 			    h2->rxf_stream);
-			Lck_Lock(&h2->sess->mtx);
 			r2->error = H2SE_INTERNAL_ERROR;
 			if (r2->cond)
 				PTOK(pthread_cond_signal(r2->cond));
@@ -1284,10 +1270,8 @@ h2_procframe(struct worker *wrk, struct h2_sess *h2, h2_frame h2f)
 		// rfc7540,l,1140,1145
 		// rfc7540,l,1153,1158
 		/* No even streams, we don't do PUSH_PROMISE */
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_SessError, "H2: illegal stream (=%u)",
+		H2_sess_VSLb(h2, 0, SLT_SessError, "H2: illegal stream (=%u)",
 		    h2->rxf_stream);
-		Lck_Unlock(&h2->sess->mtx);
 		return (H2CE_PROTOCOL_ERROR);
 	}
 
@@ -1334,14 +1318,14 @@ h2_stream_tmo(struct h2_sess *h2, const struct h2_req *r2, vtim_real now)
 
 	if (isnan(now) || (r2->t_winupd != 0 &&
 	    now - r2->t_winupd > cache_param->h2_window_timeout)) {
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 1, SLT_Debug,
 		     "H2: stream %u: Hit h2_window_timeout", r2->stream);
 		h2e = H2SE_BROKE_WINDOW;
 	}
 
 	if (h2e == NULL && r2->t_send != 0 &&
 	    now - r2->t_send > SESS_TMO(h2->sess, send_timeout)) {
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 1, SLT_Debug,
 		     "H2: stream %u: Hit send_timeout", r2->stream);
 		h2e = H2SE_CANCEL;
 	}
@@ -1491,11 +1475,9 @@ h2_rxframe(struct worker *wrk, struct h2_sess *h2)
 		// rfc7540,l,679,681
 		// XXX: later, drain rest of frame
 		h2->bogosity++;
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 0, SLT_Debug,
 		    "H2: Unknown frame type 0x%02x (ignored)",
 		    (uint8_t)h2->rxf_type);
-		Lck_Unlock(&h2->sess->mtx);
 		h2->srq->acct.req_bodybytes += h2->rxf_len;
 		return (1);
 	}
@@ -1509,11 +1491,9 @@ h2_rxframe(struct worker *wrk, struct h2_sess *h2)
 	if (h2->rxf_flags & ~h2f->flags) {
 		// rfc7540,l,687,688
 		h2->bogosity++;
-		Lck_Lock(&h2->sess->mtx);
-		VSLb(h2->vsl, SLT_Debug,
+		H2_sess_VSLb(h2, 0, SLT_Debug,
 		    "H2: Unknown flags 0x%02x on %s (ignored)",
 		    (uint8_t)h2->rxf_flags & ~h2f->flags, h2f->name);
-		Lck_Unlock(&h2->sess->mtx);
 		h2->rxf_flags &= h2f->flags;
 	}
 
