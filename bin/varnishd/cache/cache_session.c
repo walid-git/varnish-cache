@@ -263,7 +263,7 @@ HTC_RxInit(struct http_conn *htc, struct ws *ws)
 	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
 	htc->ws = ws;
 
-	l = WS_ReqPipeline(htc->ws, htc->pipeline_b, htc->pipeline_e);
+	l = WS_Pipeline(htc->ws, htc->pipeline_b, htc->pipeline_e);
 	htc->rxbuf_b = WS_Reservation(ws);
 	htc->rxbuf_e = htc->rxbuf_b + l;
 	htc->pipeline_b = NULL;

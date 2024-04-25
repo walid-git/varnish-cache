@@ -135,8 +135,8 @@ WS_Reset(struct ws *ws, uintptr_t pp)
  * may not originate from the same workspace.
  */
 
-unsigned
-WS_ReqPipeline(struct ws *ws, const void *b, const void *e)
+int
+WS_Pipeline(struct ws *ws, const void *b, const void *e)
 {
 	unsigned r, l;
 
@@ -144,8 +144,6 @@ WS_ReqPipeline(struct ws *ws, const void *b, const void *e)
 
 	if (!strcasecmp(ws->id, "req"))
 		WS_Rollback(ws, 0);
-	else
-		AZ(b);
 
 	r = WS_ReserveAll(ws);
 

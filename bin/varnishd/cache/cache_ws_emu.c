@@ -221,8 +221,8 @@ WS_Reset(struct ws *ws, uintptr_t pp)
 	WS_Assert(ws);
 }
 
-unsigned
-WS_ReqPipeline(struct ws *ws, const void *b, const void *e)
+int
+WS_Pipeline(struct ws *ws, const void *b, const void *e)
 {
 	struct ws_emu *we;
 	struct ws_alloc *wa;
@@ -231,9 +231,6 @@ WS_ReqPipeline(struct ws *ws, const void *b, const void *e)
 	WS_Assert(ws);
 	AZ(ws->f);
 	AZ(ws->r);
-
-	if (strcasecmp(ws->id, "req"))
-		AZ(b);
 
 	if (b == NULL) {
 		AZ(e);
