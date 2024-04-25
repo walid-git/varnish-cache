@@ -103,6 +103,41 @@ HTTP1_Complete(struct http_conn *htc)
 }
 
 /*--------------------------------------------------------------------
+ * Check that we have a complete trailers list
+ */
+
+enum htc_status_e v_matchproto_(htc_complete_f)
+HTTP1_Trailers(struct http_conn *htc)
+{
+	char *b, *e;
+	enum {
+		TRL_START,
+		TRL_R_1,
+		TRL_N_1,
+		TRL_R_2,
+		TRL_N_2,
+	} s = TRL_N_1;
+
+	b = htc->rxbuf_b;
+	e = htc->rxbuf_e;
+
+	if (b == NULL || b == e)
+		return (HTC_S_MORE);
+	do {
+		if (*b == '\n')
+			s = (s == TRL_N_1 || s == TRL_R_2)? TRL_N_2 : TRL_N_1;
+		else if (*b == '\r' && (s == TRL_START || s == TRL_N_1))
+			s = (s == TRL_START)? TRL_R_1 : TRL_R_2;
+		else
+			s = TRL_START;
+	} while (s != TRL_N_2 && ++b != e);
+
+	if (s == TRL_N_2)
+		return (HTC_S_COMPLETE);
+	return (HTC_S_MORE);
+}
+
+/*--------------------------------------------------------------------
  * Dissect the headers of the HTTP protocol message.
  * Detect conditionals (headers which start with '^[Ii][Ff]-')
  */
