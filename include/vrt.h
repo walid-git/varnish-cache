@@ -721,6 +721,7 @@ VCL_VOID VRT_synth_blob(VRT_CTX, VCL_BLOB);
 typedef VCL_BOOL vdi_healthy_f(VRT_CTX, VCL_BACKEND, VCL_TIME *);
 typedef VCL_BACKEND vdi_resolve_f(VRT_CTX, VCL_BACKEND);
 typedef int vdi_gethdrs_f(VRT_CTX, VCL_BACKEND);
+typedef int vdi_gettrls_f(VRT_CTX, VCL_BACKEND);
 typedef VCL_IP vdi_getip_f(VRT_CTX, VCL_BACKEND);
 typedef void vdi_finish_f(VRT_CTX, VCL_BACKEND);
 typedef stream_close_t vdi_http1pipe_f(VRT_CTX, VCL_BACKEND);
@@ -738,6 +739,7 @@ struct vdi_methods {
 	vdi_healthy_f			*healthy;
 	vdi_resolve_f			*resolve;
 	vdi_gethdrs_f			*gethdrs;
+	vdi_gettrls_f			*gettrls;
 	vdi_getip_f			*getip;
 	vdi_finish_f			*finish;
 	vdi_event_f			*event;
