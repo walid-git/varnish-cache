@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "vct.h"
 #include "vtcp.h"
 #include "vtim.h"
 
@@ -306,4 +307,90 @@ V1F_FetchRespHdr(struct busyobj *bo)
 		}
 
 	return (0);
+}
+
+int
+V1F_FetchTrls(struct worker *wrk, struct http_conn *htc, struct ws *ws)
+{
+	int ret;
+	double t;
+	char *p;
+	const char *name, *desc;
+	struct vsl_log *vsl;
+	enum htc_status_e hs;
+	enum {
+		TRL_START,
+		TRL_R_1,
+		TRL_N_1,
+		TRL_R_2,
+		TRL_N_2,
+	} s;
+
+	CHECK_OBJ_NOTNULL(htc, HTTP_CONN_MAGIC);
+	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
+	CHECK_OBJ_NOTNULL(ws, WS_MAGIC);
+	AN(wrk->vsl);
+
+	vsl = wrk->vsl;
+	ret = 0;
+
+	if (HTC_RxInit(htc, ws)) {
+		VSLb(vsl, SLT_FetchError, "overflow");
+		htc->doclose = SC_RX_OVERFLOW;
+		return (-1);
+	}
+
+	t = VTIM_real() + htc->between_bytes_timeout;
+	hs = HTC_RxStuff(htc, HTTP1_Trailers, NULL, NULL,
+	    t, NAN, htc->between_bytes_timeout, INT_MAX); // XXX: param?
+	if (hs != HTC_S_COMPLETE) {
+		switch (hs) {
+		case HTC_S_JUNK:
+			VSLb(vsl, SLT_FetchError, "Received junk");
+			htc->doclose = SC_RX_JUNK;
+			break;
+		case HTC_S_CLOSE:
+			VSLb(vsl, SLT_FetchError, "backend closed");
+			htc->doclose = SC_RESP_CLOSE;
+			break;
+		case HTC_S_TIMEOUT:
+			VSLb(vsl, SLT_FetchError, "timeout");
+			htc->doclose = SC_RX_TIMEOUT;
+			break;
+		case HTC_S_OVERFLOW:
+			VSLb(vsl, SLT_FetchError, "overflow");
+			htc->doclose = SC_RX_OVERFLOW;
+			break;
+		case HTC_S_IDLE:
+			WRONG("unreachable");
+		default:
+			HTC_Status(hs, &name, &desc);
+			VSLb(vsl, SLT_FetchError, "HTC %s (%s)",
+			name, desc);
+			htc->doclose = SC_RX_BAD;
+			break;
+		}
+		VSLb(vsl, SLT_FetchError, "Trailers read failed");
+		return (-1);
+	}
+	ret = htc->rxbuf_e - htc->rxbuf_b;
+	p = htc->rxbuf_b;
+	s = TRL_N_1; // We have already read "(\r)?\n" in VFP
+
+	do {
+		if (*p == '\n')
+			s = (s == TRL_N_1 || s == TRL_R_2) ? TRL_N_2 : TRL_N_1;
+		else if (*p == '\r' && (s == TRL_START || s == TRL_N_1))
+			s = (s == TRL_START)? TRL_R_1 : TRL_R_2;
+		else if (vct_ishdrval(*p) && (s == TRL_START || s == TRL_N_1))
+			s = TRL_START;
+		else {
+			VSLb(vsl, SLT_FetchError,
+			    "Unexpected trailers char 0x%02X", *p);
+			return (-1);
+		}
+	} while (s != TRL_N_2 && ++p != htc->rxbuf_e);
+
+	HTC_RxPipeline(htc, p);
+	return (s == TRL_N_2 ? ret : -1);
 }

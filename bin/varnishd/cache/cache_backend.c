@@ -349,7 +349,7 @@ vbe_dir_gettrls(VRT_CTX, VCL_BACKEND d)
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(ctx->bo, BUSYOBJ_MAGIC);
 
-	return (0);
+	return (V1F_FetchTrls(ctx->bo->wrk, ctx->bo->htc, ctx->bo->ws));
 }
 
 static VCL_IP v_matchproto_(vdi_getip_f)
