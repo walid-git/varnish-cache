@@ -226,7 +226,7 @@ WS_Pipeline(struct ws *ws, const void *b, const void *e)
 {
 	struct ws_emu *we;
 	struct ws_alloc *wa;
-	unsigned l;
+	int l;
 
 	WS_Assert(ws);
 	AZ(ws->f);
@@ -249,7 +249,8 @@ WS_Pipeline(struct ws *ws, const void *b, const void *e)
 
 	AN(e);
 	l = pdiff(b, e);
-	assert(l <= wa->len);
+	if (l > wa->len)
+		return (-1); // XXX: Different sequence of events
 	memcpy(wa->ptr, b, l);
 
 	WS_Rollback(ws, 0);

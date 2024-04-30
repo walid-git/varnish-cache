@@ -154,7 +154,8 @@ WS_Pipeline(struct ws *ws, const void *b, const void *e)
 
 	AN(e);
 	l = pdiff(b, e);
-	assert(l <= r);
+	if (l > r)
+		return (-1);
 	memmove(ws->f, b, l);
 	return (l);
 }
