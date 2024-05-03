@@ -234,8 +234,6 @@ WS_Pipeline(struct ws *ws, const void *b, const void *e)
 
 	if (b == NULL) {
 		AZ(e);
-		if (!strcasecmp(ws->id, "req"))
-			WS_Rollback(ws, 0);
 		(void)WS_ReserveAll(ws);
 		return (0);
 	}

@@ -142,9 +142,6 @@ WS_Pipeline(struct ws *ws, const void *b, const void *e)
 
 	WS_Assert(ws);
 
-	if (!strcasecmp(ws->id, "req"))
-		WS_Rollback(ws, 0);
-
 	r = WS_ReserveAll(ws);
 
 	if (b == NULL) {
