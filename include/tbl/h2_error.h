@@ -181,6 +181,15 @@ H2_ERROR(
 )
 
 H2_ERROR(
+	/* name */	TRAILERS_PSEUDO_HEADER,
+	/* val */	1, /* PROTOCOL_ERROR */
+	/* types */	2,
+	/* goaway */	1,
+	/* reason */	SC_NULL,
+	/* descr */	"pseudo-header in trailers"
+)
+
+H2_ERROR(
 	/* name */	BROKE_WINDOW,
 	/* val */	8, /* CANCEL */
 	/* types */	2,
