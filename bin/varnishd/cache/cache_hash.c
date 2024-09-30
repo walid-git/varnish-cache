@@ -672,24 +672,18 @@ unsigned
 HSH_Purge(struct worker *wrk, struct objhead *oh, vtim_real ttl_now,
     vtim_dur ttl, vtim_dur grace, vtim_dur keep)
 {
-	struct objcore *oc, *oc_nows[2], **ocp;
+	struct objcore *oc, **ocp;
 	unsigned i, j, n, n_max, total = 0;
 	int is_purge;
+	WS_SCRATCH_SPACE(struct objcore*, 2) wss[1];
 
 	CHECK_OBJ_NOTNULL(wrk, WORKER_MAGIC);
 	CHECK_OBJ_NOTNULL(oh, OBJHEAD_MAGIC);
 
 	is_purge = (ttl == 0 && grace == 0 && keep == 0);
-	n_max = WS_ReserveLumps(wrk->aws, sizeof *ocp);
-	if (n_max < 2) {
-		/* No space on the workspace. Give it a stack buffer of 2
-		 * elements, which is the minimum for the algorithm
-		 * below. */
-		ocp = oc_nows;
-		n_max = 2;
-	} else
-		ocp = WS_Reservation(wrk->aws);
+	WS_SCRATCH_RESERVE(ocp, n_max, wrk->aws, wss);
 	AN(ocp);
+	AN(n_max);
 
 	/* Note: This algorithm uses OC references in the list as
 	 * bookmarks, in order to know how far into the list we were when
@@ -771,7 +765,7 @@ HSH_Purge(struct worker *wrk, struct objhead *oh, vtim_real ttl_now,
 		CHECK_OBJ_ORNULL(oc, OBJCORE_MAGIC);
 	}
 
-	WS_Release(wrk->aws, 0);
+	WS_SCRATCH_RELEASE(wrk->aws, wss);
 	if (is_purge)
 		Pool_PurgeStat(total);
 	return (total);
