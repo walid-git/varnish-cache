@@ -61,7 +61,9 @@ hdr_t H__Status	= HDR(":status");
 hdr_t H__Proto	= HDR(":proto");
 hdr_t H__Reason	= HDR(":reason");
 
-static char * via_hdr;
+static char * via_hdr_10;
+static char * via_hdr_11;
+static char * via_hdr_20;
 
 /*--------------------------------------------------------------------
  * Perfect hash to rapidly recognize headers from tbl/http_headers.h
@@ -226,10 +228,20 @@ HTTP_Init(void)
 
 	vsb = VSB_new_auto();
 	AN(vsb);
+	VSB_printf(vsb, "1.0 %s (Varnish/" PACKAGE_BRANCH ")",
+	    heritage.identity);
+	AZ(VSB_finish(vsb));
+	REPLACE(via_hdr_10, VSB_data(vsb));
+	VSB_clear(vsb);
 	VSB_printf(vsb, "1.1 %s (Varnish/" PACKAGE_BRANCH ")",
 	    heritage.identity);
 	AZ(VSB_finish(vsb));
-	REPLACE(via_hdr, VSB_data(vsb));
+	REPLACE(via_hdr_11, VSB_data(vsb));
+	VSB_clear(vsb);
+	VSB_printf(vsb, "2.0 %s (Varnish/" PACKAGE_BRANCH ")",
+		heritage.identity);
+	AZ(VSB_finish(vsb));
+	REPLACE(via_hdr_20, VSB_data(vsb));
 	VSB_destroy(&vsb);
 }
 
@@ -1601,7 +1613,7 @@ const char *
 http_ViaHeader(void)
 {
 
-	return (via_hdr);
+	return (via_hdr_11);
 }
 
 /*--------------------------------------------------------------------*/
