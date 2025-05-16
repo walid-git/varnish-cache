@@ -5,6 +5,10 @@ server s1 {
 	expect req.http.via == \
 		"1.1 v2 (Varnish/${pkg_branch}), 1.1 v1 (Varnish/${pkg_branch})"
 	txresp
+	rxreq
+	expect req.http.via == \
+		"2.0 v2 (Varnish/${pkg_branch}), 1.1 v1 (Varnish/${pkg_branch})"
+	txresp -proto "HTTP/1.0"
 } -start
 
 varnish v1 -vcl+backend "" -start
@@ -20,4 +24,15 @@ client c1 -connect ${v2_sock} {
 	rxresp
 	expect resp.http.via == \
 		"1.1 v1 (Varnish/${pkg_branch}), 1.1 v2 (Varnish/${pkg_branch})"
+} -run
+
+varnish v2 -cliok "param.set feature +http2"
+
+client c2 -connect ${v2_sock} {
+	stream 1 {
+		txreq -url "/1"
+		rxresp
+		expect resp.http.via == \
+			"1.0 v1 (Varnish/${pkg_branch}), 1.1 v2 (Varnish/${pkg_branch})"
+	} -run
 } -run

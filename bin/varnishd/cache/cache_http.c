@@ -1614,9 +1614,26 @@ http_TimeHeader(struct http *to, const char *fmt, vtim_real now)
 }
 
 const char *
-http_ViaHeader(void)
+http_ViaHeader(const struct req *req)
 {
+	const char *p;
+	uint8_t protover;
 
+	CHECK_OBJ_NOTNULL(req, REQ_MAGIC);
+
+	if (req->req_step == R_STP_DELIVER) {
+		CHECK_OBJ_NOTNULL(req->objcore, OBJCORE_MAGIC);
+		p = HTTP_GetHdrPack(req->wrk, req->objcore, H__Proto);
+		protover = http_protover(p);
+	} else {
+		assert(req->req_step == R_STP_RECV);
+		CHECK_OBJ_NOTNULL(req->http, HTTP_MAGIC);
+		protover = req->http->protover;
+	}
+	if (protover == 20)
+		return (via_hdr_20);
+	if (protover == 10)
+		return (via_hdr_10);
 	return (via_hdr_11);
 }
 

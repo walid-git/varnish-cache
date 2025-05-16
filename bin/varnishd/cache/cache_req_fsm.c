@@ -169,7 +169,7 @@ Resp_Setup_Deliver(struct req *req)
 	http_PrintfHeader(h, "Age: %.0f",
 	    floor(fmax(0., req->t_prev - oc->t_origin)));
 
-	http_AppendHeader(h, H_Via, http_ViaHeader());
+	http_AppendHeader(h, H_Via, http_ViaHeader(req));
 
 	if (cache_param->http_gzip_support &&
 	    ObjCheckFlag(req->wrk, oc, OF_GZIPED) &&
@@ -905,7 +905,7 @@ cnt_recv_prep(struct req *req, const char *ci)
 		 * it in the VSL log.
 		 */
 		http_AppendHeader(req->http, H_X_Forwarded_For, ci);
-		http_AppendHeader(req->http, H_Via, http_ViaHeader());
+		http_AppendHeader(req->http, H_Via, http_ViaHeader(req));
 		http_CollectHdr(req->http, H_Cache_Control);
 
 		/* By default we use the first backend */
