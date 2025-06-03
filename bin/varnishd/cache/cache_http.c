@@ -427,13 +427,9 @@ HTTP_Clone(struct http *to, const struct http * const fm)
 
 /*--------------------------------------------------------------------*/
 
-void
-http_Proto(struct http *to)
+static uint8_t
+http_protover(const char *fm)
 {
-	const char *fm;
-
-	fm = to->hd[HTTP_HDR_PROTO].b;
-
 	if (fm != NULL &&
 	    (fm[0] == 'H' || fm[0] == 'h') &&
 	    (fm[1] == 'T' || fm[1] == 't') &&
@@ -444,10 +440,18 @@ http_Proto(struct http *to)
 	    fm[6] == '.' &&
 	    vct_isdigit(fm[7]) &&
 	    fm[8] == '\0') {
-		to->protover = 10 * (fm[5] - '0') + (fm[7] - '0');
-	} else {
-		to->protover = 0;
+		return (10 * (fm[5] - '0') + (fm[7] - '0'));
 	}
+	return (0);
+}
+
+void
+http_Proto(struct http *to)
+{
+	const char *fm;
+
+	fm = to->hd[HTTP_HDR_PROTO].b;
+	to->protover = http_protover(fm);
 }
 
 /*--------------------------------------------------------------------*/
