@@ -63,7 +63,7 @@
   REQ_STEP(purge,               PURGE,		static) \
   REQ_STEP(miss,                MISS,		static) \
   REQ_STEP(fetch,               FETCH,		static) \
-  REQ_STEP(deliver,             DELIVER,	static) \
+  REQ_STEP(deliver,             DELIVER,	) \
   REQ_STEP(vclfail,             VCLFAIL,	static) \
   REQ_STEP(synth,               SYNTH,		static) \
   REQ_STEP(transmit,            TRANSMIT,	static) \
