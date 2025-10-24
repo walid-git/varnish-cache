@@ -314,4 +314,11 @@ vcc_Act_New(struct vcc *tl, struct token *t, struct symbol *sym)
 	ifp = New_IniFin(tl);
 	VSB_printf(ifp->fin, "\t\tif (%s)\n", isym->rname);
 	VSB_printf(ifp->fin, "\t\t\t\t%s(&%s);", vf->value, isym->rname);
+
+	vv = VTAILQ_NEXT(vv, list);
+	vf = VTAILQ_FIRST(&vv->children);
+	assert(vjsn_is_string(vf));
+	if (!strcmp(vf->value, "$EXPORT")) {
+		printf("WALID: EXPORT found in vcc_Act_New\n");
+	}
 }

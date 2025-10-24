@@ -70,7 +70,7 @@ $Function STRING test_priv_top(PRIV_TOP, STRING)
 Test function for TOP private pointers
 
 $Object obj(STRING string="default", ENUM { one, two, three } number=one)
-
+$Export
 Test object
 
 Fail for string="fail".
@@ -124,6 +124,9 @@ $Method STRING .test_priv_top(STRING s="")
 Test per-object priv_top via VRT_priv_top()
 
 $Restrict client
+
+$Function STRING test_obj_ptr(debug.obj)
+$Function VOID test_obj_ptr2(debug.obj)
 
 $Function VOID rot104()
 

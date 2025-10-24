@@ -244,7 +244,7 @@ class CType():
         self.vt = wl.pop(0)
         self.ct = CTYPES.get(self.vt)
         if self.ct is None:
-            err("Expected type got '%s'" % self.vt, warn=False)
+            self.ct = "void*"
         if wl and wl[0] == "{":
             if self.vt != "ENUM":
                 err("Only ENUMs take {...} specs", warn=False)
@@ -773,6 +773,8 @@ class ObjectStanza(Stanza):
         self.fini.argstruct = False
         self.fini.args = []
 
+        self.export = None
+
         self.rstlbl = '%s.%s()' % (self.vcc.modname, self.proto.name)
         self.vcc.contents.append(self)
         self.methods = []
@@ -807,6 +809,8 @@ class ObjectStanza(Stanza):
         fo.write(self.init.cproto(
             ['VRT_CTX', 'struct %s **' % sn, 'const char *'], w))
         fo.write(self.fini.cproto(['struct %s **' % sn], w))
+        if self.export:
+            fo.write(self.export.cproto(['struct %s **' % sn], w))
         for i in self.methods:
             fo.write(i.proto.cproto(['VRT_CTX', 'struct %s *' % sn], w))
         fo.write("\n")
@@ -814,6 +818,8 @@ class ObjectStanza(Stanza):
     def cstruct(self, fo, define):
         self.fmt_cstruct_proto(fo, self.init, define)
         self.fmt_cstruct_proto(fo, self.fini, define)
+        if self.export:
+            self.fmt_cstruct_proto(fo, self.export, define)
         for i in self.methods:
             i.cstruct(fo, define)
         fo.write("\n")
@@ -834,6 +840,11 @@ class ObjectStanza(Stanza):
         l2 = ["$FINI"]
         ll.append(l2)
         self.fini.jsonproto(l2, self.fini.name)
+
+        if self.export:
+            l2 = ["$EXPORT"]
+            ll.append(l2)
+            self.export.jsonproto(l2, self.export.name)
 
         for i in self.methods:
             i.json(ll)
@@ -888,6 +899,37 @@ class RestrictStanza(Stanza):
         tab = ["$RESTRICT"]
         tab.append(self.restrict_toks)
         jl.append(tab)
+
+class ExportStanza(Stanza):
+
+    ''' $Export '''
+
+    def parse(self):
+        if len(self.toks) != 1:
+            self.syntax()
+        p = self.vcc.contents[-1]
+        if (isinstance(p, ObjectStanza)):
+            self.obj = p
+            p.export = copy.copy(p.proto)
+            p.export.name += '__export'
+            p.export.argstruct = False
+            p.export.args = []
+        else :
+            err("$Export should be after $Object", False)
+        
+
+    # def cstuff(self, fo, where):
+    #     if where == 'h':
+    #         fo.write("vmod_export_f %s%s;\n" %(self.vcc.sympfx, "_export"))
+
+    # def cstruct(self, fo, define):
+    #     if define:
+    #         fo.write("\tvmod_export_f\t\t\t*_export;\n")
+    #     else:
+    #         fo.write("\t%s%s,\n" % (self.vcc.sympfx, "_export"))
+
+    def json(self, jl):
+         jl.append('%s.f_%s' % (self.obj.vcc.csn, "__export"))
 
 
 class AliasStanza(Stanza):
@@ -958,7 +1000,8 @@ DISPATCH = {
     "Synopsis": SynopsisStanza,
     "Alias":    AliasStanza,
     "Restrict": RestrictStanza,
-    "Version":  VersionStanza
+    "Version":  VersionStanza,
+    "Export":   ExportStanza
 }
 
 

@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -74,6 +74,30 @@ xyzzy_obj__init(VRT_CTX, struct xyzzy_debug_obj **op,
 	AN(*op);
 }
 
+VCL_STRING
+xyzzy_test_obj_ptr(VRT_CTX, void *obj)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(obj);
+	struct xyzzy_debug_obj *o;
+	CAST_OBJ_NOTNULL(o, obj, VMOD_DEBUG_OBJ_MAGIC);
+	printf("WALID: xyzzy_test_obj_ptr %p", o);
+	VSLb(ctx->vsl, SLT_Error, "xyzzy_test_obj_ptr(%p)", o);
+	return (o->string);
+}
+
+VCL_VOID
+xyzzy_test_obj_ptr2(VRT_CTX, void *obj)
+{
+	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+	AN(obj);
+	struct xyzzy_debug_obj *o;
+	CAST_OBJ_NOTNULL(o, obj, VMOD_DEBUG_OBJ_MAGIC);
+	printf("WALID: xyzzy_test_obj_ptr %p", o);
+	VSLb(ctx->vsl, SLT_Error, "xyzzy_test_obj_ptr(%p)", o);
+	o->string = "modified in obj_ptr2";
+}
+
 VCL_VOID v_matchproto_(td_xyzzy_obj__fini)
 xyzzy_obj__fini(struct xyzzy_debug_obj **op)
 {
@@ -81,6 +105,15 @@ xyzzy_obj__fini(struct xyzzy_debug_obj **op)
 
 	TAKE_OBJ_NOTNULL(o, op, VMOD_DEBUG_OBJ_MAGIC);
 	FREE_OBJ(o);
+}
+
+VCL_VOID v_matchproto_(td_xyzzy_obj__export)
+xyzzy_obj__export(struct xyzzy_debug_obj **op)
+{
+	struct xyzzy_debug_obj *o;
+
+	TAKE_OBJ_NOTNULL(o, op, VMOD_DEBUG_OBJ_MAGIC);
+
 }
 
 VCL_VOID v_matchproto_(td_xyzzy_obj_enum)

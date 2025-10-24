@@ -498,6 +498,15 @@ vcc_do_arg(struct vcc *tl, const char *cfunc, struct func_arg *fa)
 	fa->avail = 1;
 }
 
+struct vmod_obj {
+	unsigned		magic;
+#define VMOD_OBJ_MAGIC		0x349885f8
+	char			*name;
+	struct type		type[1];
+	VTAILQ_ENTRY(vmod_obj)	list;
+};
+
+
 static void
 vcc_func(struct vcc *tl, struct expr **e, const void *priv,
     const char *extra, struct symbol *sym)
@@ -562,6 +571,18 @@ vcc_func(struct vcc *tl, struct expr **e, const void *priv,
 			continue;
 		}
 		fa->type = VCC_Type(vvp->value);
+		if (fa->type == NULL) {
+
+			struct vmod_obj *obj;
+			/* XXX: proper error handling ? */
+			VTAILQ_FOREACH(obj, &tl->vmod_objects, list) {
+				if (strcmp(obj->name, vvp->value))
+					continue;
+				fa->type = obj->type;
+			}
+			// memcpy(&fa->instance_type, fa->type, sizeof(fa->instance_type));
+			// REPLACE(fa->instance_type.name, vvp->value);
+		}
 		AN(fa->type);
 		vvp = VTAILQ_NEXT(vvp, list);
 		if (vvp != NULL) {
@@ -810,6 +831,8 @@ vcc_expr5(struct vcc *tl, struct expr **e, vcc_type_t fmt)
 			AZ(*e);
 			*e = vcc_new_expr(sym->type);
 			(*e)->instance = sym;
+			VSB_printf((*e)->vsb, "%s", sym->rname);
+			VSB_finish((*e)->vsb);
 			return;
 		}
 		if (sym->kind == SYM_FUNC && sym->type == VOID) {
